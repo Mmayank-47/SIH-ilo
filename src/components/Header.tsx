@@ -6,12 +6,14 @@ interface HeaderProps {
   currentTab: NavigationTab;
   onNavigate: (tab: NavigationTab) => void;
   onTriggerCamouflage: (mode: CamouflageMode) => void;
+  onOpenClinicalMonitor?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   currentTab,
   onNavigate,
   onTriggerCamouflage,
+  onOpenClinicalMonitor,
 }) => {
   if (currentTab === 'support') {
     return (
@@ -104,6 +106,17 @@ export const Header: React.FC<HeaderProps> = ({
               title="Support & Crisis Care"
             >
               <span className="material-symbols-outlined text-[20px]">verified_user</span>
+            </button>
+          )}
+
+          {onOpenClinicalMonitor && (
+            <button
+              onClick={onOpenClinicalMonitor}
+              className="w-10 h-10 flex items-center justify-center rounded-full bg-[#FAF7F2] text-[#6E775C] hover:bg-[#A7B59C]/20 hover:text-[#2C2824] transition-all shadow-2xs border border-[#D5CEBF]/70"
+              aria-label="Clinical Distress Monitor & AI Backend"
+              title="Clinical Distress Monitor & AI Backend Diagnostics"
+            >
+              <span className="material-symbols-outlined text-[20px]">health_and_safety</span>
             </button>
           )}
 

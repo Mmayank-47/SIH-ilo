@@ -6,9 +6,14 @@ import { soundEngine } from '../utils/audioSynth';
 interface ChatScreenProps {
   onNavigate: (tab: NavigationTab) => void;
   onTriggerCamouflage: (mode: CamouflageMode) => void;
+  onOpenClinicalMonitor?: () => void;
 }
 
-export const ChatScreen: React.FC<ChatScreenProps> = ({ onNavigate, onTriggerCamouflage }) => {
+export const ChatScreen: React.FC<ChatScreenProps> = ({
+  onNavigate,
+  onTriggerCamouflage,
+  onOpenClinicalMonitor,
+}) => {
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: 'm1',
@@ -35,6 +40,9 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ onNavigate, onTriggerCam
   const [isTyping, setIsTyping] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isCleared, setIsCleared] = useState(false);
+  const [sessionId] = useState(() => `session-${Date.now()}`);
+  const [isAnalyzingMedia, setIsAnalyzingMedia] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -45,7 +53,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ onNavigate, onTriggerCam
     scrollToBottom();
   }, [messages, isTyping]);
 
-  const handleSendMessage = (textToSend?: string) => {
+  const handleSendMessage = async (textToSend?: string) => {
     const text = textToSend || inputVal.trim();
     if (!text) return;
 
@@ -61,36 +69,143 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ onNavigate, onTriggerCam
     if (!textToSend) setInputVal('');
     setIsTyping(true);
 
-    // Compassionate empathetic responses from ilo
-    setTimeout(() => {
-      let replyText = "I hear you softly. Let’s take three calm breaths together. Breathe in peace, exhale tension.";
-      let subPrompt: string | undefined;
-
-      const lower = text.toLowerCase();
-      if (lower.includes('breathing')) {
-        replyText = "Inhale slowly for 4 counts... 1, 2, 3, 4. Hold gently... and let it float away. You are safe here.";
-        subPrompt = "Notice how the chest softens on each exhale. You are doing wonderfully.";
-      } else if (lower.includes('listen') || lower.includes('quiet')) {
-        replyText = "I'm sitting quietly right beside you. You don't have to carry any expectations here.";
-        subPrompt = "No words needed. Just stillness and warm presence.";
-      } else if (lower.includes('better') || lower.includes('calm')) {
-        replyText = "That brings so much calm to my heart. Honor every tiny moment of relief you feel today.";
-      } else if (lower.includes('scared') || lower.includes('fear') || lower.includes('tight')) {
-        replyText = "It is completely understandable to feel shaken. Look around the room: notice 3 safe objects that are solid and still.";
-        subPrompt = "Feel your feet grounded on the floor. The ground is holding you.";
-      }
+    try {
+      const res = await fetch('/api/chat/message', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId,
+          message: text,
+        }),
+      });
+      const data = await res.json();
 
       const botMsg: ChatMessage = {
         id: (Date.now() + 1).toString(),
         sender: 'ilo',
-        text: replyText,
-        subPrompt,
+        text: data.reply || "I am resting right here with you in quiet support.",
         timestamp: 'Just now • ilo',
+        actionsTriggered: data.actionsTriggered,
+        isCrisisAlert: data.isCrisisAlert,
       };
 
       setMessages((prev) => [...prev, botMsg]);
+    } catch {
+      // Fallback
+      const botMsg: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        sender: 'ilo',
+        text: "I am holding space right here with you. Take a slow, gentle breath and know you are protected.",
+        timestamp: 'Just now • ilo',
+      };
+      setMessages((prev) => [...prev, botMsg]);
+    } finally {
       setIsTyping(false);
-    }, 1300);
+    }
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const base64 = (reader.result as string).split(',')[1];
+      if (!base64) return;
+
+      const userMsg: ChatMessage = {
+        id: Date.now().toString(),
+        sender: 'user',
+        text: `Shared an expressive artwork / mood sketch: ${file.name}`,
+        timestamp: 'Just now',
+      };
+      setMessages((prev) => [...prev, userMsg]);
+      setIsTyping(true);
+
+      try {
+        const res = await fetch('/api/analyze/image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            imageBase64: base64,
+            mimeType: file.type || 'image/jpeg',
+            contextText: 'Expressive mood sketch from user chat sanctuary',
+          }),
+        });
+        const data = await res.json();
+        const analysis = data.analysis;
+
+        const botMsg: ChatMessage = {
+          id: (Date.now() + 1).toString(),
+          sender: 'ilo',
+          text: `I see the gentle expression in what you shared. ${analysis?.expressiveInterpretation || 'Thank you for expressing your inner world safely.'}`,
+          subPrompt: `Dominant tone: ${analysis?.dominantColorTone || 'soft'} • Somatic sense: ${analysis?.somaticObservations || 'quiet stillness'}`,
+          timestamp: 'Just now • ilo',
+        };
+        setMessages((prev) => [...prev, botMsg]);
+      } catch {
+        const botMsg: ChatMessage = {
+          id: (Date.now() + 1).toString(),
+          sender: 'ilo',
+          text: "Thank you for sharing your artwork with me. I hold space for every color and line you create.",
+          timestamp: 'Just now • ilo',
+        };
+        setMessages((prev) => [...prev, botMsg]);
+      } finally {
+        setIsTyping(false);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleVoiceToggle = async () => {
+    if (isRecording) {
+      setIsRecording(false);
+      // Simulate sending voice note to voice signal analyzer
+      setIsTyping(true);
+      const userMsg: ChatMessage = {
+        id: Date.now().toString(),
+        sender: 'user',
+        text: '🎙️ Voice note shared (gentle whisper)',
+        timestamp: 'Just now',
+      };
+      setMessages((prev) => [...prev, userMsg]);
+
+      try {
+        const res = await fetch('/api/analyze/voice', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            transcriptText: 'User spoke with soft, slow breathing and intermittent thoughtful pauses.',
+            sampleType: 'hesitant_trauma',
+          }),
+        });
+        const data = await res.json();
+        const v = data.analysis;
+
+        const botMsg: ChatMessage = {
+          id: (Date.now() + 1).toString(),
+          sender: 'ilo',
+          text: `I heard your voice softly. ${v?.summary || 'Your rhythm is so steady and gentle.'}`,
+          subPrompt: `Acoustic presence: ${v?.speechRate || 'slow'} rhythm • ${v?.recommendedSupport || 'Gentle soothing presence'}`,
+          timestamp: 'Just now • ilo',
+        };
+        setMessages((prev) => [...prev, botMsg]);
+      } catch {
+        const botMsg: ChatMessage = {
+          id: (Date.now() + 1).toString(),
+          sender: 'ilo',
+          text: "I felt the gentle cadence of your voice. Thank you for resting your breath here.",
+          timestamp: 'Just now • ilo',
+        };
+        setMessages((prev) => [...prev, botMsg]);
+      } finally {
+        setIsTyping(false);
+      }
+    } else {
+      setIsRecording(true);
+      soundEngine.playChime();
+    }
   };
 
   const handleClearDiscreetly = () => {
@@ -126,15 +241,28 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ onNavigate, onTriggerCam
             </div>
           </div>
 
-          {/* Quick Discretion / Clear Privacy Button */}
-          <button
-            onClick={handleClearDiscreetly}
-            aria-label="Quick privacy wipe"
-            className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-white text-[#6E775C] hover:bg-[#F8F4EC] active:scale-95 transition-all shadow-2xs border border-[#D5CEBF]"
-          >
-            <span className="material-symbols-outlined text-[16px]">visibility_off</span>
-            <span className="text-[11px] font-semibold">Clear discreetly</span>
-          </button>
+          {/* Quick Discretion & Clinical Monitor Buttons */}
+          <div className="flex items-center gap-1.5">
+            {onOpenClinicalMonitor && (
+              <button
+                onClick={onOpenClinicalMonitor}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-white text-[#6E775C] hover:bg-[#F8F4EC] active:scale-95 transition-all shadow-2xs border border-[#D5CEBF]"
+                title="Clinical Distress Monitor & AI Diagnostics"
+              >
+                <span className="material-symbols-outlined text-[15px]">health_and_safety</span>
+                <span className="text-[11px] font-semibold hidden sm:inline">Monitor</span>
+              </button>
+            )}
+
+            <button
+              onClick={handleClearDiscreetly}
+              aria-label="Quick privacy wipe"
+              className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-white text-[#6E775C] hover:bg-[#F8F4EC] active:scale-95 transition-all shadow-2xs border border-[#D5CEBF]"
+            >
+              <span className="material-symbols-outlined text-[16px]">visibility_off</span>
+              <span className="text-[11px] font-semibold">Clear</span>
+            </button>
+          </div>
         </div>
 
         {/* Ambient Grounding Micro-Card */}
@@ -216,6 +344,62 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ onNavigate, onTriggerCam
                           </p>
                         </div>
                       )}
+
+                      {/* Autonomous Action Triggers from Gemini */}
+                      {msg.actionsTriggered && msg.actionsTriggered.length > 0 && (
+                        <div className="mt-2.5 space-y-1.5">
+                          {msg.actionsTriggered.map((action, idx) => (
+                            <div
+                              key={idx}
+                              className="p-2.5 rounded-xl bg-[#FAF7F2] border border-[#C47A5C]/30 flex flex-col gap-1 text-xs"
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="font-semibold text-[#C47A5C] flex items-center gap-1 text-[11px]">
+                                  <span className="material-symbols-outlined text-[15px]">spa</span>
+                                  ilo Gentle Suggestion
+                                </span>
+                                <span className="text-[10px] text-[#7A7067] capitalize font-mono">
+                                  {action.tool.replace(/_/g, ' ')}
+                                </span>
+                              </div>
+                              <p className="text-[12px] text-[#2C2824]">
+                                {action.record?.summary || 'Suggested calming somatic support'}
+                              </p>
+                              {action.tool === 'recommend_activity' && (
+                                <button
+                                  type="button"
+                                  onClick={() => onNavigate('activities')}
+                                  className="self-start mt-1 px-3 py-1 rounded-full bg-[#C47A5C] text-white text-[11px] font-medium hover:bg-[#B36C4F] active:scale-95 transition shadow-2xs"
+                                >
+                                  Open Guided Practice
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Crisis Safety Resource Anchor */}
+                      {msg.isCrisisAlert && (
+                        <div className="mt-2.5 p-3 rounded-xl bg-[#FFF5F5] border border-[#C44D4D]/35 flex flex-col gap-1.5 text-xs text-[#2C2824]">
+                          <div className="flex items-center gap-1.5 text-[#C44D4D] font-bold">
+                            <span className="material-symbols-outlined text-[17px]">favorite</span>
+                            <span>Gentle Human Support Is Ready</span>
+                          </div>
+                          <p className="text-[11px] text-[#56524D] leading-relaxed">
+                            You are safe here and you are never alone. Confidential support workers and counselors are ready to be by your side whenever you feel ready.
+                          </p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <button
+                              type="button"
+                              onClick={() => onNavigate('support')}
+                              className="px-3 py-1 rounded-full bg-[#C44D4D] text-white text-[11px] font-semibold hover:bg-[#B33E3E]"
+                            >
+                              View Sanctuary Helplines (988)
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                     <span className="text-[10px] text-[#8D887E] px-2">{msg.timestamp}</span>
                   </div>
@@ -288,21 +472,37 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ onNavigate, onTriggerCam
             }}
             className="flex items-center gap-2"
           >
+            {/* Expressive Artwork / Mood Sketch Upload */}
+            <input
+              type="file"
+              accept="image/*"
+              ref={fileInputRef}
+              onChange={handleImageUpload}
+              className="hidden"
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              aria-label="Upload expressive mood sketch or drawing"
+              title="Share an expressive drawing or mood image"
+              className="w-12 h-12 rounded-full bg-white text-[#6E775C] hover:bg-[#FAF7F2] hover:text-[#C47A5C] border border-[#D5CEBF] flex items-center justify-center shrink-0 transition-all shadow-2xs active:scale-95"
+            >
+              <span className="material-symbols-outlined text-[20px]">palette</span>
+            </button>
+
             {/* Voice Note Button */}
             <button
               type="button"
-              onClick={() => {
-                setIsRecording(!isRecording);
-                if (!isRecording) {
-                  soundEngine.playChime();
-                }
-              }}
-              aria-label="Speak thoughts or whisper"
+              onClick={handleVoiceToggle}
+              aria-label={isRecording ? 'Stop recording voice note' : 'Record voice note or whisper'}
+              title={isRecording ? 'Tap to complete voice note' : 'Whisper or speak thoughts to ilo'}
               className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 transition-all shadow-2xs active:scale-95 ${
                 isRecording ? 'bg-[#C47A5C] text-white animate-pulse' : 'bg-[#6E775C] text-white hover:bg-[#5C644D]'
               }`}
             >
-              <span className="material-symbols-outlined text-[22px]">mic</span>
+              <span className="material-symbols-outlined text-[22px]">
+                {isRecording ? 'stop' : 'mic'}
+              </span>
             </button>
 
             {/* Text Capsule Input */}

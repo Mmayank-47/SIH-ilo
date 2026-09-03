@@ -10,6 +10,8 @@ export interface JournalEntry {
   content: string;
   timestamp: string;
   dateStr: string;
+  reflectionInsight?: string;
+  distressLevel?: number;
 }
 
 export interface ChatMessage {
@@ -18,6 +20,40 @@ export interface ChatMessage {
   text: string;
   subPrompt?: string;
   timestamp: string;
+  actionsTriggered?: {
+    tool: string;
+    record?: any;
+  }[];
+  isCrisisAlert?: boolean;
+}
+
+export interface DynamicDistressScore {
+  overallDDS: number;
+  riskTier: 'Low' | 'Moderate' | 'Elevated' | 'Severe/Crisis';
+  subscores: {
+    emotionalDistress: number;
+    cognitiveDisruption: number;
+    somaticIndicators: number;
+    behavioralWithdrawal: number;
+  };
+  longitudinalTrend: 'improving' | 'stable' | 'escalating' | 'fluctuating';
+  keyTriggers: string[];
+  protectiveFactors: string[];
+  recommendedInterventionTier: 'self_care' | 'counsellor_checkin' | 'urgent_clinical_intervention' | 'immediate_protection';
+  nonClinicalSummary: string;
+  suggestedActions: string[];
+}
+
+export interface AlertRecord {
+  id: string;
+  sessionId: string;
+  timestamp: string;
+  type: 'counsellor_alert' | 'followup_scheduled' | 'activity_recommended' | 'protection_escalation';
+  priority: 'low' | 'medium' | 'high' | 'critical';
+  distressLevel?: number;
+  summary: string;
+  details: Record<string, any>;
+  status: 'active' | 'acknowledged' | 'resolved';
 }
 
 export type HeartFeeling =

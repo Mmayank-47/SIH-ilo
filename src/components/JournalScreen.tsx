@@ -66,8 +66,9 @@ export const JournalScreen: React.FC<JournalScreenProps> = ({ onTriggerCamouflag
     if (!newContent.trim()) return;
 
     soundEngine.playChime();
+    const entryId = Date.now().toString();
     const entry: JournalEntry = {
-      id: Date.now().toString(),
+      id: entryId,
       tag: newTag,
       tagType: newTag === 'Peaceful Morning' ? 'peace' : newTag === 'Tender Release' ? 'release' : 'grounded',
       title: newTitle.trim() || 'Gentle reflection',
@@ -80,6 +81,33 @@ export const JournalScreen: React.FC<JournalScreenProps> = ({ onTriggerCamouflag
     setNewTitle('');
     setNewContent('');
     setIsWriting(false);
+
+    // Analyze journal entry with Gemini in background for gentle trauma-informed reflection
+    fetch('/api/analyze/journal', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text: entry.content,
+        contextTag: entry.tag,
+      }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.analysis) {
+          setEntries((prev) =>
+            prev.map((item) =>
+              item.id === entryId
+                ? {
+                    ...item,
+                    reflectionInsight: data.analysis.iloReflectionQuote || data.analysis.somaticSensationSummary,
+                    distressLevel: data.analysis.distressIndex,
+                  }
+                : item
+            )
+          );
+        }
+      })
+      .catch(() => {});
   };
 
   return (
@@ -212,6 +240,17 @@ export const JournalScreen: React.FC<JournalScreenProps> = ({ onTriggerCamouflag
                   <p className="text-[13px] text-[#635952] leading-relaxed line-clamp-2">
                     {entry.content}
                   </p>
+
+                  {entry.reflectionInsight && (
+                    <div className="mt-1.5 p-2 rounded-xl bg-[#FAF7F2] border border-[#A7B59C]/40 flex items-start gap-1.5">
+                      <span className="material-symbols-outlined text-[15px] text-[#C47A5C] shrink-0 mt-0.5">
+                        spa
+                      </span>
+                      <p className="italic text-[11px] text-[#56524D] leading-snug">
+                        ilo whispers: “{entry.reflectionInsight}”
+                      </p>
+                    </div>
+                  )}
 
                   <div className="flex items-center justify-between pt-1.5 border-t border-[#E5DED4]/60">
                     <div className="flex items-center gap-1.5 text-[#635952]">

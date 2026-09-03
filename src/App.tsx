@@ -10,12 +10,14 @@ import { ProfileScreen } from './components/ProfileScreen';
 import { SupportScreen } from './components/SupportScreen';
 import { CamouflageOverlay } from './components/CamouflageOverlay';
 import { ComfortModals } from './components/ComfortModals';
+import { ClinicalMonitorModal } from './components/ClinicalMonitorModal';
 import { soundEngine } from './utils/audioSynth';
 
 export default function App() {
   const [currentTab, setCurrentTab] = useState<NavigationTab>('home');
   const [camouflageMode, setCamouflageMode] = useState<CamouflageMode>('none');
   const [comfortModal, setComfortModal] = useState<'sounds' | 'story' | 'checklist' | null>(null);
+  const [isClinicalMonitorOpen, setIsClinicalMonitorOpen] = useState(false);
 
   // Gentle audio chime on tab switch
   const handleNavigate = (tab: NavigationTab) => {
@@ -67,6 +69,7 @@ export default function App() {
         currentTab={currentTab}
         onNavigate={handleNavigate}
         onTriggerCamouflage={handleTriggerCamouflage}
+        onOpenClinicalMonitor={() => setIsClinicalMonitorOpen(true)}
       />
 
       {/* Main View Screen */}
@@ -81,6 +84,7 @@ export default function App() {
           <ChatScreen
             onNavigate={handleNavigate}
             onTriggerCamouflage={handleTriggerCamouflage}
+            onOpenClinicalMonitor={() => setIsClinicalMonitorOpen(true)}
           />
         )}
         {currentTab === 'journal' && (
@@ -115,6 +119,12 @@ export default function App() {
       <ComfortModals
         type={comfortModal}
         onClose={() => setComfortModal(null)}
+      />
+
+      {/* Clinical Distress Monitor & AI Backend Diagnostic Panel */}
+      <ClinicalMonitorModal
+        isOpen={isClinicalMonitorOpen}
+        onClose={() => setIsClinicalMonitorOpen(false)}
       />
     </div>
   );
