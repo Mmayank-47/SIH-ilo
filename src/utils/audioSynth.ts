@@ -93,6 +93,62 @@ class SoundscapeEngine {
     osc.start();
     osc.stop(this.ctx.currentTime + 2.0);
   }
+
+  // Play a cute, wholesome mascot chirp (soft two-tone ascending chime)
+  playCuteChirp(cheerful = true) {
+    this.initContext();
+    if (!this.ctx) return;
+
+    const now = this.ctx.currentTime;
+    const f1 = cheerful ? 587.33 : 523.25; // D5 or C5
+    const f2 = cheerful ? 880.00 : 659.25; // A5 or E5
+
+    // Tone 1
+    const osc1 = this.ctx.createOscillator();
+    const gain1 = this.ctx.createGain();
+    osc1.type = 'sine';
+    osc1.frequency.setValueAtTime(f1, now);
+    gain1.gain.setValueAtTime(0.09, now);
+    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+    osc1.connect(gain1);
+    gain1.connect(this.ctx.destination);
+    osc1.start(now);
+    osc1.stop(now + 0.18);
+
+    // Tone 2 (higher, sweet cute lift)
+    const osc2 = this.ctx.createOscillator();
+    const gain2 = this.ctx.createGain();
+    osc2.type = 'sine';
+    osc2.frequency.setValueAtTime(f2, now + 0.1);
+    gain2.gain.setValueAtTime(0.001, now);
+    gain2.gain.setValueAtTime(0.08, now + 0.1);
+    gain2.gain.exponentialRampToValueAtTime(0.0001, now + 0.38);
+    osc2.connect(gain2);
+    gain2.connect(this.ctx.destination);
+    osc2.start(now + 0.1);
+    osc2.stop(now + 0.38);
+  }
+
+  // Wholesome soft purr / grounding heartbeat pulse
+  playCutePurr() {
+    this.initContext();
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(95, now);
+    osc.frequency.exponentialRampToValueAtTime(65, now + 0.4);
+
+    gain.gain.setValueAtTime(0.08, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.4);
+  }
 }
 
 export const soundEngine = new SoundscapeEngine();

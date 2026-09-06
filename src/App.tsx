@@ -69,7 +69,6 @@ export default function App() {
         currentTab={currentTab}
         onNavigate={handleNavigate}
         onTriggerCamouflage={handleTriggerCamouflage}
-        onOpenClinicalMonitor={() => setIsClinicalMonitorOpen(true)}
       />
 
       {/* Main View Screen */}
@@ -84,7 +83,6 @@ export default function App() {
           <ChatScreen
             onNavigate={handleNavigate}
             onTriggerCamouflage={handleTriggerCamouflage}
-            onOpenClinicalMonitor={() => setIsClinicalMonitorOpen(true)}
           />
         )}
         {currentTab === 'journal' && (
@@ -106,8 +104,13 @@ export default function App() {
         )}
       </div>
 
-      {/* Bottom Dock Navigation */}
-      <BottomNav currentTab={currentTab} onNavigate={handleNavigate} />
+      {/* Bottom Dock Navigation Island */}
+      <BottomNav
+        currentTab={currentTab}
+        onNavigate={handleNavigate}
+        onOpenClinicalMonitor={() => setIsClinicalMonitorOpen(true)}
+        isClinicalMonitorOpen={isClinicalMonitorOpen}
+      />
 
       {/* Camouflage Disguised Overlays (Pantry, Weather, Calculator) */}
       <CamouflageOverlay

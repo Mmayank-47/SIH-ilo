@@ -1,7 +1,13 @@
 export const ASSETS = {
+  // Official ilo Logo with lavender sprig
+  iloLogo: 'https://lh3.googleusercontent.com/aida/AEtjO1WSs_FWxCsUu0h-4-sh7goHV22Oz-j34F86IN4fPTXZodXVoGTAc1K59PuGAv5Z48Qfo9c24qvoCt1VaLBw--Ij2INhmeXv4t3trgpeCopz0Pct6MxYhHkI1ImWxbWM9wXdTpckL-khw4WMHbEP4mny1rzCDGYxgOhkeU-FKfhguQb0kyYp4qktcUbBlwTRDxFNNgl8mrX9aiHVNPPyGsKYq3BjUa7LxZxTBBT1HTvGVzMDAS67aichdT8',
+
   // Companion avatar with warm fluffy appearance
-  iloCompanion: 'https://lh3.googleusercontent.com/aida/AEtjO1WONSHvj40LET3zoHn2KClCSqOJc57Uf6mdnKG6cwlvdSlVAlGKEcnwj-AptDGVDzdlT91eRqepFprcVU2VoAFBnhk_NvGtOPewDEIWbLpxJJWoJhKfDP2enylid9CZIy3WNuA8tpYflHU_RAjVbVv4i9y_2W-7IjQzQVwfN3-Jgn19rc3Wxev8uDpUASeEMhOfz-fqOzNZ8M45XtIdYHNH3-oBld5Kv5ZzShR3O23QeukCLq9FkGXRl4g',
+  iloCompanion: 'https://lh3.googleusercontent.com/aida/AEtjO1WSs_FWxCsUu0h-4-sh7goHV22Oz-j34F86IN4fPTXZodXVoGTAc1K59PuGAv5Z48Qfo9c24qvoCt1VaLBw--Ij2INhmeXv4t3trgpeCopz0Pct6MxYhHkI1ImWxbWM9wXdTpckL-khw4WMHbEP4mny1rzCDGYxgOhkeU-FKfhguQb0kyYp4qktcUbBlwTRDxFNNgl8mrX9aiHVNPPyGsKYq3BjUa7LxZxTBBT1HTvGVzMDAS67aichdT8',
   
+  // ilo Mascot on Home Screen
+  iloMascot: 'https://lh3.googleusercontent.com/aida/AEtjO1V55d76oJZK6fZE6jc0V9BgNvzTUtDdTBoDk0wezuZWKppDp_zkjF1ThONnAF8LooHZwBtzcPh6qUAYewIrrJsQJe9VNmJlDhFPe4a1FlewyMkG7yQcAVLIbIvAidDAM7J_M03tleNWUXqeHznxhHVbewvR-qrE_uSqR9PxpNUr_GPCrg_-ZBAvA4qfM57wYWVcfO-zpS0MxNgx9QM1q9gQtCqbevj9jpscB7EfKSt5F3e8TMrXweo_aXQ',
+
   // Header user profile thumbnail
   userHeaderProfile: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBgI9CuVyzMfEAvIUcThWWg6V2tRF3lojs7-VjBm8lcI1O4kak1Yl2WzqTYfWF5daT6OEYn2RZye4IKR-DbEyWvnAQGs9U3i3WQfFvZaS6oZpzUQ7QvG_afbeYRR9ao-JTIZT1VasN9J0UwChhyyxEvK8h4Uw1HTyv41cc7kGZ-mVJvwxWpn9z9AP7d_bfqu0XJ5Kx7YaRBDuLfrG0dKlCjPhsR8maDKyQL8MZoRUgxgqSmu5bBAXXA',
   

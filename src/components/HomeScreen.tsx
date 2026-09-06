@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ASSETS } from '../constants/assets';
 import { HeartFeeling, NavigationTab } from '../types';
 import { soundEngine } from '../utils/audioSynth';
+import { ReactiveMascot } from './ReactiveMascot';
 
 interface HomeScreenProps {
   onNavigate: (tab: NavigationTab) => void;
@@ -83,60 +84,56 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate, onOpenComfor
   return (
     <main className="flex-1 flex flex-col relative w-full max-w-md mx-auto px-5 pt-20 pb-28 bg-[#F2EDE2]">
       <div className="flex flex-col w-full gap-5">
-        {/* Companion Hero Section with circular framed artwork */}
-        <section className="flex flex-col items-center text-center pt-2">
-          <div className="relative w-40 h-40 rounded-full p-2 flex items-center justify-center mb-3">
-            {/* Soft gradient ambient glow aura */}
-            <div className="absolute inset-0 rounded-full bg-gradient-to-b from-[#E7B9B2]/35 via-[#F2EDE2] to-[#A7B59C]/20 blur-xl pointer-events-none"></div>
-            
-            {/* Outer frame circle with soft shadow */}
-            <div className="relative w-36 h-36 rounded-full overflow-hidden shadow-[0_8px_24px_rgba(110,119,92,0.15)] bg-gradient-to-b from-[#FAF7F2] to-[#EAE4D7] border border-[#D5CEBF]/80 flex items-center justify-center p-1">
-              <img
-                src={ASSETS.iloCompanion}
-                alt="ilo Companion"
-                className="w-full h-full object-cover rounded-full select-none"
-              />
-            </div>
+        {/* Reactive AI Mascot Hero Section (Virtual Pet Attuned Presence) */}
+        <section className="relative flex flex-col items-center text-center pt-1 pb-4 overflow-hidden">
+          <ReactiveMascot
+            distressLevel={30}
+            onOpenGrounding={(technique) => {
+              onOpenComfort('sounds');
+            }}
+          />
+
+          <div className="max-w-xs space-y-1 z-10 mt-3">
+            <h1 className="font-serif text-[24px] text-[#C47A5C] font-bold tracking-tight">
+              Namaste, friend.
+            </h1>
+            <p className="text-[13px] text-[#595048] font-medium leading-relaxed">
+              Take your time. You are safe and held here with ilo.
+            </p>
           </div>
 
-          <h1 className="font-serif text-[28px] leading-tight text-[#C47A5C] font-bold tracking-tight">
-            Namaste, friend.
-          </h1>
-          <p className="text-[14px] text-[#56524D] max-w-xs mt-1 leading-relaxed">
-            Take your time. You are safe and held here with ilo.
-          </p>
-
           {/* Gentle Rhythm Pill */}
-          <div className="mt-3.5 inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-white border border-[#D5CEBF]/80 text-[#56524D] shadow-2xs">
-            <span className="material-symbols-outlined text-[16px] text-[#6E775C]">spa</span>
-            <span className="text-[12px] font-medium">Gentle Rhythm • Rooted in Peace</span>
+          <div className="mt-3 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white border border-[#D8C2BA]/40 shadow-xs">
+            <span className="material-symbols-outlined text-[17px] text-[#6E775C]">spa</span>
+            <span className="text-[12px] text-[#595048] font-medium">Gentle Rhythm • Rooted in Peace</span>
           </div>
         </section>
 
         {/* Gentle Presence Streak Card */}
-        <section className="w-full rounded-2xl bg-white p-5 border border-[#D5CEBF]/70 shadow-xs flex flex-col gap-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#C47A5C]"></span>
-              <span className="font-serif text-[16px] font-semibold text-[#2C2824]">Gentle Presence</span>
+        <section className="w-full mb-1">
+          <div className="bg-white rounded-2xl p-5 shadow-[0_8px_24px_rgba(110,119,92,0.06)] border border-[#D8C2BA]/40 relative overflow-hidden">
+            <div className="flex items-center justify-between mb-2.5">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#C47A5C]"></span>
+                <span className="text-[15px] text-[#23201B] font-semibold">Gentle Presence</span>
+              </div>
+              <span className="text-[12px] text-[#C47A5C] font-bold">4 days of peace</span>
             </div>
-            <span className="text-[12px] font-semibold text-[#C47A5C]">4 days of peace</span>
-          </div>
 
-          <p className="text-[13px] text-[#56524D] leading-relaxed">
-            Every breath you take in stillness is a soft seed planted. No scores, just gentle steps.
-          </p>
+            <p className="text-[13px] text-[#595048] mb-4 leading-relaxed">
+              Every breath you take in stillness is a soft seed planted. No scores, just gentle steps.
+            </p>
 
-          {/* Olive & sage leaves sprouting pill container */}
-          <div className="w-full p-2.5 rounded-full bg-[#F2EDE2]/80 border border-[#D5CEBF]/60 flex items-center justify-center gap-2 text-[#6E775C]">
-            <span className="material-symbols-outlined text-[18px]">psychiatry</span>
-            <span className="material-symbols-outlined text-[18px]">psychiatry</span>
-            <span className="material-symbols-outlined text-[18px]">psychiatry</span>
-            <span className="material-symbols-outlined text-[18px] text-[#C47A5C]/70">psychiatry</span>
-            <span className="material-symbols-outlined text-[18px] text-[#A7B59C]/60">potted_plant</span>
-            <span className="text-[11px] font-medium text-[#56524D] ml-1">
-              Olive & sage leaves sprouting
-            </span>
+            <div className="flex items-center justify-between bg-[#F8F3E8] rounded-full px-4 py-2.5 border border-[#D8C2BA]/30">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-[#6E775C] text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>local_florist</span>
+                <span className="material-symbols-outlined text-[#6E775C] text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>local_florist</span>
+                <span className="material-symbols-outlined text-[#A7B59C] text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>local_florist</span>
+                <span className="material-symbols-outlined text-[#E7B9B2] text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>local_florist</span>
+                <span className="material-symbols-outlined text-[#D8C2BA] text-[18px]">nature</span>
+              </div>
+              <span className="text-[12px] text-[#595048] font-medium">Olive & sage leaves sprouting</span>
+            </div>
           </div>
         </section>
 

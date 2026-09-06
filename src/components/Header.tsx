@@ -6,14 +6,12 @@ interface HeaderProps {
   currentTab: NavigationTab;
   onNavigate: (tab: NavigationTab) => void;
   onTriggerCamouflage: (mode: CamouflageMode) => void;
-  onOpenClinicalMonitor?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   currentTab,
   onNavigate,
   onTriggerCamouflage,
-  onOpenClinicalMonitor,
 }) => {
   if (currentTab === 'support') {
     return (
@@ -63,18 +61,18 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Left: Brand logo & safety tag */}
         <button
           onClick={() => onNavigate('home')}
-          className="flex items-center gap-2.5 text-left focus:outline-none"
+          className="flex items-center gap-3 text-left focus:outline-none"
         >
-          <div className="h-9 w-9 rounded-full overflow-hidden flex items-center justify-center bg-white shadow-xs border border-[#A7B59C]/40 p-0.5 shrink-0">
+          <div className="h-9 w-9 rounded-full overflow-hidden flex items-center justify-center bg-[#FCFAF6] border border-[#E5DED4] shadow-xs shrink-0">
             <img
-              src={ASSETS.iloCompanion}
+              src={ASSETS.iloLogo}
               alt="ilo Logo"
-              className="h-8 w-8 object-contain"
+              className="h-7 w-auto object-contain"
             />
           </div>
           <div className="flex flex-col">
-            <span className="font-serif text-[18px] text-[#C47A5C] font-semibold leading-tight tracking-tight">ilo</span>
-            <span className="text-[11px] text-[#6E775C] font-medium leading-none">Safe & Protected</span>
+            <span className="font-serif text-[17px] font-medium text-[#2D2622] leading-tight">ilo</span>
+            <span className="text-[12px] text-[#6E775C] font-medium tracking-wide leading-none">Safe & Protected</span>
           </div>
         </button>
 
@@ -106,17 +104,6 @@ export const Header: React.FC<HeaderProps> = ({
               title="Support & Crisis Care"
             >
               <span className="material-symbols-outlined text-[20px]">verified_user</span>
-            </button>
-          )}
-
-          {onOpenClinicalMonitor && (
-            <button
-              onClick={onOpenClinicalMonitor}
-              className="w-10 h-10 flex items-center justify-center rounded-full bg-[#FAF7F2] text-[#6E775C] hover:bg-[#A7B59C]/20 hover:text-[#2C2824] transition-all shadow-2xs border border-[#D5CEBF]/70"
-              aria-label="Clinical Distress Monitor & AI Backend"
-              title="Clinical Distress Monitor & AI Backend Diagnostics"
-            >
-              <span className="material-symbols-outlined text-[20px]">health_and_safety</span>
             </button>
           )}
 

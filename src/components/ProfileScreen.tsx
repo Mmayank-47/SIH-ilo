@@ -14,6 +14,13 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onTriggerCamouflag
   const [shakeEnabled, setShakeEnabled] = useState(true);
   const [pingSent, setPingSent] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [facialConsent, setFacialConsent] = useState(() => {
+    try {
+      return localStorage.getItem('ilo_facial_wellbeing_consent_v1') === 'true';
+    } catch {
+      return false;
+    }
+  });
 
   const languages = [
     { code: 'en', native: 'English', sub: 'Primary Interface', sample: 'You are safe and held here in your sanctuary.' },
@@ -217,6 +224,38 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onTriggerCamouflag
               }}
               className={`w-12 h-7 rounded-full transition-colors p-0.5 flex items-center shrink-0 focus:outline-none ${
                 vaultMode ? 'bg-[#C47A5C] justify-end' : 'bg-[#DCD9DB] justify-start'
+              }`}
+            >
+              <span className="w-6 h-6 rounded-full bg-white shadow-xs transition-transform"></span>
+            </button>
+          </div>
+
+          {/* Facial Wellbeing Signals (Periodic 20-30s capture toggle) */}
+          <div className="flex items-center justify-between gap-3 pt-1">
+            <div className="flex items-start gap-3 min-w-0">
+              <div className="w-10 h-10 rounded-full bg-[#F2EDE2] border border-[#C47A5C]/20 flex items-center justify-center text-[#C47A5C] shrink-0 mt-0.5">
+                <span className="material-symbols-outlined text-[20px]">videocam</span>
+              </div>
+              <div className="flex flex-col min-w-0">
+                <span className="text-[14px] font-semibold text-[#2C2824]">Facial Wellbeing Analysis</span>
+                <span className="text-[11px] text-[#7A7067]">
+                  Analyze periodic still frames (every 20–30s) during conversations. Zero raw photos stored.
+                </span>
+              </div>
+            </div>
+            <button
+              role="switch"
+              aria-checked={facialConsent}
+              onClick={() => {
+                const newVal = !facialConsent;
+                setFacialConsent(newVal);
+                try {
+                  localStorage.setItem('ilo_facial_wellbeing_consent_v1', newVal ? 'true' : 'false');
+                } catch {}
+                soundEngine.playChime();
+              }}
+              className={`w-12 h-7 rounded-full transition-colors p-0.5 flex items-center shrink-0 focus:outline-none ${
+                facialConsent ? 'bg-[#C47A5C] justify-end' : 'bg-[#DCD9DB] justify-start'
               }`}
             >
               <span className="w-6 h-6 rounded-full bg-white shadow-xs transition-transform"></span>

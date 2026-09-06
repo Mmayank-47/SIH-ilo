@@ -14,8 +14,9 @@ async function startServer() {
   app.use(express.json({ limit: '35mb' }));
   app.use(express.urlencoded({ extended: true, limit: '35mb' }));
 
-  // Mount REST API routes
+  // Mount REST API routes (supports both /api/* and root /facial-analysis/* contracts)
   app.use('/api', apiRouter);
+  app.use(apiRouter);
 
   // Vite middleware for development vs static serving in production
   if (process.env.NODE_ENV !== 'production') {

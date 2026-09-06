@@ -5,6 +5,7 @@
 import { Router, Request, Response } from 'express';
 import {
   handleCompanionMessage,
+  handleMascotChatTurn,
   analyzeVoiceSignal,
   analyzeImageSignal,
   analyzeJournalSignal,
@@ -14,6 +15,11 @@ import {
   PRIMARY_MODEL,
 } from '../geminiService.js';
 import { scrubPII, registerSessionMetadata } from '../privacy.js';
+import {
+  processFacialFrame,
+  getOrCreateUserBaseline,
+  getSessionAnalyses,
+} from '../facialAnalysisService.js';
 
 export const apiRouter = Router();
 
@@ -61,6 +67,11 @@ apiRouter.post('/chat/message', async (req: Request, res: Response) => {
       success: true,
       sessionId,
       reply: result.reply,
+      reply_text: result.reply_text,
+      reply_language: result.reply_language,
+      mascot_state: result.mascot_state,
+      suggested_grounding_technique: result.suggested_grounding_technique,
+      distress_contribution: result.distress_contribution,
       actionsTriggered: result.actionsTriggered,
       isCrisisAlert: result.isCrisisAlert,
       scrubInfo: {
@@ -73,6 +84,117 @@ apiRouter.post('/chat/message', async (req: Request, res: Response) => {
     console.error('[API /chat/message] Error:', error);
     res.status(500).json({
       error: 'Failed to generate companion response',
+      details: error?.message,
+    });
+  }
+});
+
+// 2b. POST /api/chat/mascot-turn - Structured Reactive Mascot Interaction
+apiRouter.post('/chat/mascot-turn', async (req: Request, res: Response) => {
+  try {
+    const {
+      sessionId = 'session-default',
+      message,
+      distressLevel = 25,
+      currentMascotState = 'idle',
+      inputModality = 'text',
+      preferredLanguage = 'auto',
+      recentSignals,
+      userMeta,
+    } = req.body;
+
+    if (!message || typeof message !== 'string') {
+      return res.status(400).json({ error: 'Field "message" (string) is required.' });
+    }
+
+    if (userMeta && typeof userMeta === 'object') {
+      registerSessionMetadata(sessionId, userMeta);
+    }
+
+    const result = await handleMascotChatTurn({
+      sessionId,
+      message,
+      distressLevel: Number(distressLevel),
+      currentMascotState,
+      inputModality,
+      preferredLanguage,
+      recentSignals,
+    });
+
+    // Exact requested output contract
+    res.json({
+      reply_text: result.reply_text,
+      reply_language: result.reply_language,
+      mascot_state: result.mascot_state,
+      suggested_grounding_technique: result.suggested_grounding_technique,
+      distress_contribution: result.distress_contribution,
+      isCrisisAlert: result.isCrisisAlert,
+      actionsTriggered: result.actionsTriggered,
+      sessionId,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error: any) {
+    console.error('[API /chat/mascot-turn] Error:', error);
+    res.status(500).json({
+      error: 'Failed to execute mascot turn',
+      details: error?.message,
+    });
+  }
+});
+
+// 2c. POST /api/mascot/voice-turn - Orchestrated STT -> Mindful LLM -> TTS Ready Payload
+apiRouter.post('/mascot/voice-turn', async (req: Request, res: Response) => {
+  try {
+    const {
+      sessionId = 'session-default',
+      audioBase64,
+      transcriptText,
+      distressLevel = 30,
+      currentMascotState = 'listening',
+      recentSignals,
+    } = req.body;
+
+    let recognizedText = transcriptText;
+
+    // If audioBase64 provided without transcript, analyze audio acoustic signal
+    if (!recognizedText && audioBase64) {
+      const voiceAnalysis = await analyzeVoiceSignal({
+        audioBase64,
+        mimeType: 'audio/webm',
+        transcriptText,
+      });
+      recognizedText = voiceAnalysis.transcript || "I'm feeling a little overwhelmed right now.";
+    }
+
+    if (!recognizedText) {
+      recognizedText = "Hello ilo, I just wanted to pause with you.";
+    }
+
+    const mascotResult = await handleMascotChatTurn({
+      sessionId,
+      message: recognizedText,
+      distressLevel: Number(distressLevel),
+      currentMascotState,
+      inputModality: 'voice',
+      recentSignals,
+    });
+
+    res.json({
+      transcript: recognizedText,
+      reply_text: mascotResult.reply_text,
+      reply_language: mascotResult.reply_language,
+      mascot_state: mascotResult.mascot_state,
+      suggested_grounding_technique: mascotResult.suggested_grounding_technique,
+      distress_contribution: mascotResult.distress_contribution,
+      isCrisisAlert: mascotResult.isCrisisAlert,
+      actionsTriggered: mascotResult.actionsTriggered,
+      sessionId,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error: any) {
+    console.error('[API /mascot/voice-turn] Error:', error);
+    res.status(500).json({
+      error: 'Voice-to-mascot pipeline failure',
       details: error?.message,
     });
   }
@@ -314,3 +436,62 @@ apiRouter.post('/privacy/scrub-test', (req: Request, res: Response) => {
     scrubResult,
   });
 });
+
+// 11. POST /api/facial-analysis/frame - Analyze single still frame (zero image persistence)
+apiRouter.post('/facial-analysis/frame', async (req: Request, res: Response) => {
+  try {
+    const { session_id, sessionId, user_id, userId, image_base64, imageBase64, trigger_reason, triggerReason } = req.body;
+    const finalSessionId = session_id || sessionId;
+    const finalUserId = user_id || userId || 'user-default';
+    const finalImageBase64 = image_base64 || imageBase64;
+    const finalTrigger = trigger_reason || triggerReason || 'periodic_interval';
+
+    if (!finalSessionId) {
+      return res.status(400).json({ error: 'Field "session_id" is required.' });
+    }
+    if (!finalImageBase64 || typeof finalImageBase64 !== 'string') {
+      return res.status(400).json({ error: 'Field "image_base64" (compressed string) is required.' });
+    }
+
+    const structuredOutput = await processFacialFrame({
+      sessionId: finalSessionId,
+      userId: finalUserId,
+      imageBase64: finalImageBase64,
+      triggerReason: finalTrigger,
+    });
+
+    res.json(structuredOutput);
+  } catch (error: any) {
+    console.error('[API /facial-analysis/frame] Error:', error);
+    res.status(500).json({
+      error: 'Facial frame analysis failed',
+      details: error?.message,
+    });
+  }
+});
+
+// 12. GET /api/facial-analysis/baseline/:userId - Rolling baseline emotion distribution
+apiRouter.get('/facial-analysis/baseline/:userId', (req: Request, res: Response) => {
+  try {
+    const { userId } = req.params;
+    const baseline = getOrCreateUserBaseline(userId);
+    res.json(baseline);
+  } catch (error: any) {
+    console.error('[API /facial-analysis/baseline] Error:', error);
+    res.status(500).json({ error: 'Failed to retrieve user baseline' });
+  }
+});
+
+// 13. GET /api/facial-analysis/session/:sessionId - Session frames & aggregated DDS sub-score
+apiRouter.get('/facial-analysis/session/:sessionId', (req: Request, res: Response) => {
+  try {
+    const { sessionId } = req.params;
+    const userId = (req.query.userId as string) || 'user-default';
+    const sessionData = getSessionAnalyses(sessionId, userId);
+    res.json(sessionData);
+  } catch (error: any) {
+    console.error('[API /facial-analysis/session] Error:', error);
+    res.status(500).json({ error: 'Failed to retrieve session analyses' });
+  }
+});
+

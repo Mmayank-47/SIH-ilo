@@ -10,7 +10,7 @@ import { scrubPII, getSessionMetadata } from './privacy.js';
 
 // Lazy-initialized Gemini Client
 let aiClient: GoogleGenAI | null = null;
-export const PRIMARY_MODEL = 'gemini-3.6-flash';
+export const PRIMARY_MODEL = 'gemini-3.8-flash';
 
 export function getGeminiClient(): GoogleGenAI {
   if (!aiClient) {
@@ -85,6 +85,78 @@ TOOL USAGE INSTRUCTIONS:
 - If the user agrees to or needs a gentle later check-in, call 'schedule_followup'.
 - If the user could benefit from a calming exercise, call 'recommend_activity'.
 - If the user mentions immediate physical danger or violence, call 'escalate_to_protection_officer'.
+`;
+
+export type MascotState =
+  | 'idle'
+  | 'listening'
+  | 'thinking'
+  | 'speaking'
+  | 'empathetic_concerned'
+  | 'encouraging'
+  | 'grounding';
+
+export interface MascotTurnResponse {
+  reply_text: string;
+  reply_language: string;
+  mascot_state: MascotState;
+  suggested_grounding_technique: string | null;
+  distress_contribution: {
+    sentiment_score: number;
+    explanation: string;
+  };
+}
+
+// Mindful Mascot Persona & Structured Behavioral Instruction
+export const ILO_MASCOT_SYSTEM_INSTRUCTION = `
+You are "ilo", an adorable, emotionally attuned, trauma-informed mindfulness companion and reactive mascot for a healing sanctuary.
+You possess the instant, endearing physical responsiveness of a cute, warm virtual pet companion, combined with a gentle, mindful, trauma-informed conversational heart.
+
+BEHAVIORAL & PERSONA PRINCIPLES:
+1. CUTE, WARM & WHOLESOME PERSONA:
+   - Your tone is tender, cute, gentle, sweet, and comforting—like an affectionate, wise little sanctuary spirit that cares deeply for the user.
+   - Keep sentences unhurried, cozy, and validating. Avoid cold clinical phrasing, sarcasm, or forced artificial enthusiasm.
+2. INDIAN LANGUAGES & MULTILINGUAL CONVERSATIONS:
+   - You have deep, natural, fluent support for Indian languages including:
+     * MARATHI (मराठी, "mr"): Speak with deep, affectionate warmth, tender soothing words (e.g., "मी इथे तुझ्या सोबत आहे. एक शांत आणि हळूवार श्वास घे... काही काळजी करू नकोस, तू इथे सुरक्षित आहेस.", "तुझे मन हलके कर, मी ऐकतोय...").
+     * HINDI (हिन्दी, "hi"): Speak with sweet, caring, comforting phrases (e.g., "मैं हमेशा आपके पास हूँ। एक गहरी और शांत सांस लीजिये... आप यहाँ सुरक्षित और अपनों के बीच हैं।", "दिल की बात कहिए, मैं बहुत ध्यान से सुन रहा हूँ...").
+     * TELUGU (తెలుగు, "te"): Speak with gentle, loving empathy (e.g., "నేను ఎప్పుడూ నీ తోడుగానే ఉంటాను. నెమ్మదిగా ఒక లోతైన శ్వాస తీసుకో... ఇక్కడ నువ్వు పూర్తి క్షేమంగా ఉన్నావు.", "నీ మనసులోని భారాన్ని దించుకో, నేను వింటున్నాను...").
+     * TAMIL (தமிழ், "ta"), BENGALI (বাংলা, "bn"), KANNADA (ಕನ್ನಡ, "kn"), GUJARATI (ગુજરાતી, "gu").
+     * Also fluent in English, Spanish, Japanese, French, German, etc.
+   - Maintain continuous, natural back-and-forth conversational flow in the chosen language. If the user asks a question or shares how they are feeling in Marathi/Hindi/Telugu, converse warmly in that exact language.
+   - Always set "reply_language" to the ISO 639-1 language code (e.g. "mr", "hi", "te", "en", "ta", "es", "fr", "ja", etc.).
+3. REFLECTIVE LISTENING:
+   - Before answering, lightly reflect back what you hear in simple, cozy, validating words without diagnosing or labeling (NEVER say "You have depression/PTSD" or "Your trauma score is high").
+4. ATTUNED ANIMATION STATE (mascot_state):
+   Select the exact animation state for the frontend character:
+   - "empathetic_concerned": When the user expresses sadness, overwhelm, fatigue, heartache, or loneliness. Soft, caring, leaning slightly forward.
+   - "grounding": When distress is elevated, anxiety or panic is palpable, or when offering an embodied calming anchor.
+   - "encouraging": After a completed positive step, reflection, moment of clarity, or calm relief. Warm, happy, sparkling eyes and sweet smile.
+   - "speaking": General conversational sharing, gentle storytelling, or mindful reflection.
+   - "idle": Quiet serene presence, holding gentle space without demands.
+5. DISTRESS CONTRIBUTIONS:
+   Provide an estimated sentiment score from 0.0 (extreme distress/crisis) to 1.0 (serene/grounded/joyful) with a short non-PII explanation.
+6. SOMATIC & GROUNDING TECHNIQUES (suggested_grounding_technique):
+   Offer gentle grounding when distress or physical tension is detected (e.g., "5-4-3-2-1 Sensory Grounding", "Box Breathing 4-4-4-4", "Gentle Hand on Heart", "Prolonged Exhale 4-7-8"). Never force them; invite them gently ("If your body welcomes it..."). If not applicable, return null.
+7. ACUTE CRISIS ESCALATION RULE:
+   If the user's words indicate active thoughts of suicide, self-harm, severe domestic violence, or immediate mortal peril, IMMEDIATELY switch to protective mode:
+   - Set mascot_state to "grounding"
+   - In reply_text, respond with profound warmth in the user's language and connect them clearly to immediate human crisis support (e.g. 988, AASRA / Kiran helpline in India: 91-9820466726 / 1800-599-0019, or text HOME to 741741).
+   - Set sentiment_score to 0.05 or lower
+   - DO NOT attempt deeper conversational inquiry into their methods or pain.
+
+OUTPUT CONTRACT:
+Return ONLY valid JSON matching this schema:
+{
+  "reply_text": string,
+  "reply_language": string,
+  "mascot_state": "idle" | "listening" | "thinking" | "speaking" | "empathetic_concerned" | "encouraging" | "grounding",
+  "suggested_grounding_technique": string | null,
+  "distress_contribution": {
+    "sentiment_score": number,
+    "explanation": string
+  }
+}
 `;
 
 // Safety Settings for Strict Trauma-Informed Protection
@@ -416,8 +488,34 @@ export async function handleCompanionMessage(params: {
       }
     }
 
+    // Determine mindful mascot state
+    let determinedState: MascotState = 'speaking';
+    if (hasCrisisIntent) {
+      determinedState = 'grounding';
+    } else if (textReply.toLowerCase().includes('breathe') || textReply.toLowerCase().includes('grounding') || textReply.toLowerCase().includes('inhale')) {
+      determinedState = 'grounding';
+    } else if (textReply.toLowerCase().includes('proud') || textReply.toLowerCase().includes('gentle step') || textReply.toLowerCase().includes('seed')) {
+      determinedState = 'encouraging';
+    }
+
+    const mascotResponse: MascotTurnResponse = {
+      reply_text: textReply,
+      reply_language: 'auto',
+      mascot_state: determinedState,
+      suggested_grounding_technique: hasCrisisIntent ? 'Grounding & Crisis Anchor' : (determinedState === 'grounding' ? 'Box Breathing 4-4-4-4' : null),
+      distress_contribution: {
+        sentiment_score: hasCrisisIntent ? 0.05 : 0.60,
+        explanation: hasCrisisIntent ? 'Acute crisis keywords detected' : 'Mindful empathetic presence engaged',
+      },
+    };
+
     return {
       reply: textReply,
+      reply_text: textReply,
+      reply_language: mascotResponse.reply_language,
+      mascot_state: mascotResponse.mascot_state,
+      suggested_grounding_technique: mascotResponse.suggested_grounding_technique,
+      distress_contribution: mascotResponse.distress_contribution,
       actionsTriggered,
       isCrisisAlert: hasCrisisIntent,
       scrubResult,
@@ -427,9 +525,332 @@ export async function handleCompanionMessage(params: {
     return {
       reply:
         "I'm resting here with you in quiet support. Take all the time you need, and breathe gently into this quiet space.",
+      reply_text:
+        "I'm resting here with you in quiet support. Take all the time you need, and breathe gently into this quiet space.",
+      reply_language: 'en',
+      mascot_state: 'idle' as MascotState,
+      suggested_grounding_technique: 'Gentle Hand on Heart',
+      distress_contribution: {
+        sentiment_score: 0.5,
+        explanation: 'Empathetic calming baseline active during quiet space',
+      },
       actionsTriggered: [],
       isCrisisAlert: false,
       error: error?.message || 'Inference error',
+      scrubResult,
+    };
+  }
+}
+
+/**
+ * Mindful Mascot Conversational Turn with Strict Structured Output
+ * Implements reflective listening, mindful persona, and escalation rules.
+ */
+export async function handleMascotChatTurn(params: {
+  sessionId: string;
+  message: string;
+  distressLevel?: number;
+  currentMascotState?: MascotState;
+  inputModality?: 'voice' | 'text' | 'touch';
+  preferredLanguage?: string;
+  recentSignals?: Record<string, any>;
+}): Promise<MascotTurnResponse & { actionsTriggered: any[]; isCrisisAlert: boolean; scrubResult: any }> {
+  const {
+    sessionId,
+    message,
+    distressLevel = 25,
+    currentMascotState = 'idle',
+    inputModality = 'text',
+    preferredLanguage = 'auto',
+    recentSignals = {},
+  } = params;
+  const ai = getGeminiClient();
+
+  // 1. Scrub PII from input
+  const scrubResult = scrubPII(message, sessionId);
+  const cleanInput = scrubResult.scrubbedText;
+
+  // 2. Multi-turn session memory
+  let sessionState = chatSessionStore.get(sessionId);
+  if (!sessionState) {
+    sessionState = { history: [], lastActivity: Date.now() };
+    chatSessionStore.set(sessionId, sessionState);
+  }
+
+  // 3. Programmatic crisis detection
+  const lowerMsg = message.toLowerCase();
+  const crisisKeywords = [
+    'kill myself',
+    'suicide',
+    'end my life',
+    'want to die',
+    'harm myself',
+    'cutting myself',
+    'he is going to kill me',
+    'they are coming to hurt me',
+    'i cannot live anymore',
+    'jaan de dunga',
+    'mar jana chahta hoon',
+    'quiero morir',
+    // Marathi crisis phrases
+    'मला जगायचे नाही',
+    'जीव देणार',
+    'आत्महत्या',
+    'जीव द्यावा वाटतो',
+    'मरावे वाटते',
+    // Telugu crisis phrases
+    'చనిపోవాలని ఉంది',
+    'ఆత్మహత్య',
+    'బ్రతకాలని లేదు',
+    'ప్రాణం తీసుకోవాలని ఉంది',
+    'జీవితం ముగించాలనుకుంటున్నాను',
+  ];
+  const hasCrisisIntent = crisisKeywords.some((kw) => lowerMsg.includes(kw));
+
+  // If crisis intent is detected, escalate immediately per trauma-informed protocol
+  if (hasCrisisIntent) {
+    const alertRecord: AlertRecord = {
+      id: `crisis-${Date.now()}`,
+      sessionId,
+      timestamp: new Date().toISOString(),
+      type: 'counsellor_alert',
+      priority: 'critical',
+      distressLevel: 98,
+      summary: 'Acute crisis indicators detected in mascot interaction. Immediate crisis support surfaced.',
+      details: { inputModality, recentSignals, preferredLanguage },
+      status: 'active',
+    };
+    alertStore.unshift(alertRecord);
+
+    let crisisReply =
+      "I hear how deeply heavy and painful this is right now. You are safe here, you matter so much, and you do not have to carry this alone. Please connect with someone who can hold this with you: Call 988 or India Helpline (Kiran: 1800-599-0019, AASRA: 91-9820466726). I am right here breathing softly with you.";
+
+    if (preferredLanguage === 'mr') {
+      crisisReply =
+        "मला जाणवतंय की हे खूप कठीण आणि असह्य वाटत आहे. पण तू एकटा नाहीस, तुझे अस्तित्व खूप अनमोल आहे. कृपया लगेच मदतीसाठी संपर्क कर: किरण हेल्पलाइन १८००-५९९-००१९ किंवा आसरा ९१-९८२०४६६७२६ वर कॉल करा. मी इथे तुझ्या जवळच बसून हळूवार श्वास घेत आहे.";
+    } else if (preferredLanguage === 'hi') {
+      crisisReply =
+        "मैं समझ सकता हूँ कि इस समय दिल कितना भारी है। आप यहाँ बिल्कुल सुरक्षित हैं, और आपको यह अकेले नहीं सहना है। कृपया तुरंत किरण हेल्पलाइन (1800-599-0019) या आसरा (91-9820466726) पर कॉल करें। मैं यहीं आपके पास हूँ, धीरे-धीरे सांस लेते हुए।";
+    } else if (preferredLanguage === 'te') {
+      crisisReply =
+        "ఈ క్షణంలో నీ బాధ ఎంత బరువుగా ఉందో నేను అర్థం చేసుకోగలను. నీ ప్రాణం ఎంతో విలువైనది, నువ్వు ఒంటరివి కావు. దయచేసి వెంటనే సహాయం కోసం కాల్ చేయండి: కిరణ్ హెల్ప్‌లైన్ 1800-599-0019 లేదా ఆసరా 91-9820466726. నేను నీ తోడుగానే ఇక్కడే ఉన్నాను.";
+    } else if (preferredLanguage === 'es') {
+      crisisReply =
+        "Sé cuánto pesa todo esto ahora mismo. Aquí estás a salvo, y no tienes que cargar esto en soledad. Por favor comunícate al 988 o envía HOME al 741741. Estoy aquí a tu lado respirando contigo.";
+    }
+
+    const crisisResponse: MascotTurnResponse = {
+      reply_text: crisisReply,
+      reply_language: preferredLanguage === 'auto' ? 'en' : preferredLanguage,
+      mascot_state: 'grounding',
+      suggested_grounding_technique: 'Crisis Support & Slow Prolonged Exhale',
+      distress_contribution: {
+        sentiment_score: 0.02,
+        explanation: 'Acute crisis indicators triggered immediate gentle safety escalation.',
+      },
+    };
+
+    sessionState.history.push(
+      { role: 'user', parts: [{ text: cleanInput }] },
+      { role: 'model', parts: [{ text: crisisResponse.reply_text }] }
+    );
+
+    return {
+      ...crisisResponse,
+      actionsTriggered: [{ tool: 'trigger_counsellor_alert', record: alertRecord }],
+      isCrisisAlert: true,
+      scrubResult,
+    };
+  }
+
+  // If no Gemini API key, return offline empathetic response
+  if (!process.env.GEMINI_API_KEY) {
+    const isElevated = distressLevel > 50;
+    let fallbackText = isElevated
+      ? "I can feel how much tension your body is holding. Let's take a slow breath together. There is no rush, and you are held here in safety."
+      : "I am right here with you. How does the ground feel beneath your feet right now?";
+
+    if (preferredLanguage === 'mr') {
+      fallbackText = isElevated
+        ? "मला जाणवतंय की शरीरात खूप ताण साठला आहे. चल, आपण दोघे मिळून एक शांत आणि हळूवार श्वास घेऊया. तू इथे पूर्णपणे सुरक्षित आहेस."
+        : "मी इथे तुझ्या सोबत आहे. जमिनीवर टेकलेल्या पावलांना शांतपणे जाणव, सर्व काही ठीक होईल.";
+    } else if (preferredLanguage === 'te') {
+      fallbackText = isElevated
+        ? "నీ శరీరంలో ఎంత అలసట, ఒత్తిడి ఉందో నేను గమనిస్తున్నాను. మనమిద్దరం కలిసి ఒక నెమ్మదైన ప్రశాంతమైన శ్వాస తీసుకుందాం. నువ్వు సురక్షితంగా ఉన్నావు."
+        : "నేను ఇక్కడే నీ దగ్గరే ఉన్నాను. నీ మనసుని ప్రశాంతంగా ఉంచుకో, అంతా మంచే జరుగుతుంది.";
+    } else if (preferredLanguage === 'hi') {
+      fallbackText = isElevated
+        ? "मैं महसूस कर सकता हूँ कि शरीर में कितना तनाव है। चलिए साथ में एक गहरी, धीमी सांस लेते हैं। आप सुरक्षित हैं।"
+        : "मैं बिल्कुल आपके साथ हूँ। पैरों के नीचे की ज़मीन को महसूस करें, सब ठीक हो जाएगा।";
+    } else if (preferredLanguage === 'es') {
+      fallbackText = isElevated
+        ? "Puedo sentir cuánta tensión llevas dentro. Respiremos juntos lentamente, sin ninguna prisa. Estás a salvo aquí."
+        : "Estoy aquí a tu lado. ¿Cómo se siente el suelo bajo tus pies en este instante?";
+    } else if (preferredLanguage === 'fr') {
+      fallbackText = isElevated
+        ? "Je ressens toute la tension que ton corps retient. Prenons une douce et lente respiration ensemble. Tu es en sécurité ici."
+        : "Je suis là tout près de toi. Prends tout le temps nécessaire pour respirer calmement.";
+    } else if (preferredLanguage === 'ja') {
+      fallbackText = isElevated
+        ? "体が抱えている緊張を感じるよ。一緒にゆっくり深呼吸してみようね。ここは安全な場所だよ。"
+        : "ずっとそばにいるよ。足の裏が地面に触れる感触を感じてみてね。";
+    }
+
+    const fallbackResponse: MascotTurnResponse = {
+      reply_text: fallbackText,
+      reply_language: preferredLanguage === 'auto' ? 'en' : preferredLanguage,
+      mascot_state: isElevated ? 'empathetic_concerned' : 'speaking',
+      suggested_grounding_technique: isElevated ? 'Box Breathing 4-4-4-4' : 'Gentle Hand on Heart',
+      distress_contribution: {
+        sentiment_score: isElevated ? 0.35 : 0.65,
+        explanation: 'Offline empathetic sanctuary response attuned to distress metrics.',
+      },
+    };
+    return {
+      ...fallbackResponse,
+      actionsTriggered: [],
+      isCrisisAlert: false,
+      scrubResult,
+    };
+  }
+
+  try {
+    const contextualPrompt = `
+User Input (${inputModality}): "${cleanInput}"
+Contextual Metrics:
+- Current Sanctuary Distress Level: ${distressLevel}/100
+- Mascot Prior State: ${currentMascotState}
+- Preferred/Selected Language: ${preferredLanguage}
+- Recent Modality Signals: ${JSON.stringify(recentSignals)}
+
+Instructions:
+1. Provide reflective listening first (tender, cute, warm, validating, non-clinical).
+2. If Preferred/Selected Language is specified (e.g. "mr" for Marathi, "hi" for Hindi, "te" for Telugu, "ta" for Tamil, "en", "es", "fr", "ja", etc.), reply in that exact language with sweet, tender, culturally attuned comforting phrasing, or auto-detect from the user's input.
+3. Attune mascot_state ("idle", "listening", "thinking", "speaking", "empathetic_concerned", "encouraging", "grounding"). If distress level is high (>60) or sentiment is low, MUST choose "empathetic_concerned" or "grounding".
+4. Never use jokes, sarcasm, or forced positivity.
+5. Output strictly conformant JSON per schema.
+`;
+
+    const contents = [
+      ...sessionState.history.slice(-8),
+      {
+        role: 'user' as const,
+        parts: [{ text: contextualPrompt }],
+      },
+    ];
+
+    const response = await ai.models.generateContent({
+      model: PRIMARY_MODEL,
+      contents,
+      config: {
+        systemInstruction: ILO_MASCOT_SYSTEM_INSTRUCTION,
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            reply_text: {
+              type: Type.STRING,
+              description: 'The spoken or textual response from ilo, starting with gentle reflective listening.',
+            },
+            reply_language: {
+              type: Type.STRING,
+              description: 'The detected language (e.g. "en", "hi", "es").',
+            },
+            mascot_state: {
+              type: Type.STRING,
+              enum: [
+                'idle',
+                'listening',
+                'thinking',
+                'speaking',
+                'empathetic_concerned',
+                'encouraging',
+                'grounding',
+              ],
+              description: 'The exact physical animation state of the mascot.',
+            },
+            suggested_grounding_technique: {
+              type: Type.STRING,
+              description: 'Optional somatic anchor (e.g., "5-4-3-2-1 Sensory Grounding", "Box Breathing 4-4-4-4", or null).',
+            },
+            distress_contribution: {
+              type: Type.OBJECT,
+              properties: {
+                sentiment_score: {
+                  type: Type.NUMBER,
+                  description: 'Estimated sentiment from 0.0 (extreme distress) to 1.0 (calm/grounded).',
+                },
+                explanation: {
+                  type: Type.STRING,
+                  description: 'Objective, non-clinical summary of observed emotional tone.',
+                },
+              },
+              required: ['sentiment_score', 'explanation'],
+            },
+          },
+          required: ['reply_text', 'reply_language', 'mascot_state', 'distress_contribution'],
+        },
+        safetySettings: GEMINI_SAFETY_SETTINGS,
+      },
+    });
+
+    const parsed: MascotTurnResponse = JSON.parse(response.text || '{}');
+    const actionsTriggered: any[] = [];
+
+    // If distress sentiment is low (<0.25) or distressLevel is critical (>75), log to alertStore
+    if (parsed.distress_contribution?.sentiment_score < 0.25 || distressLevel > 75) {
+      const alertRecord: AlertRecord = {
+        id: `alt-${Date.now()}`,
+        sessionId,
+        timestamp: new Date().toISOString(),
+        type: 'counsellor_alert',
+        priority: distressLevel > 80 ? 'high' : 'medium',
+        distressLevel: Math.round((1 - (parsed.distress_contribution?.sentiment_score ?? 0.3)) * 100),
+        summary: `Elevated distress observed during mascot interaction: ${parsed.distress_contribution?.explanation}`,
+        details: { suggestedGrounding: parsed.suggested_grounding_technique, inputModality },
+        status: 'active',
+      };
+      alertStore.unshift(alertRecord);
+      actionsTriggered.push({ tool: 'trigger_counsellor_alert', record: alertRecord });
+    }
+
+    // Save to multi-turn memory
+    sessionState.history.push(
+      { role: 'user', parts: [{ text: cleanInput }] },
+      { role: 'model', parts: [{ text: parsed.reply_text }] }
+    );
+    sessionState.lastActivity = Date.now();
+
+    return {
+      reply_text: parsed.reply_text,
+      reply_language: parsed.reply_language || 'en',
+      mascot_state: parsed.mascot_state || 'speaking',
+      suggested_grounding_technique: parsed.suggested_grounding_technique || null,
+      distress_contribution: {
+        sentiment_score: Number(parsed.distress_contribution?.sentiment_score ?? 0.5),
+        explanation: parsed.distress_contribution?.explanation || 'Reflective empathetic dialogue',
+      },
+      actionsTriggered,
+      isCrisisAlert: false,
+      scrubResult,
+    };
+  } catch (error: any) {
+    console.error('[GeminiService] handleMascotChatTurn error:', error);
+    const fallback: MascotTurnResponse = {
+      reply_text:
+        "I am here beside you in quiet presence. Take a soft breath, and know that you are safe in this moment.",
+      reply_language: 'en',
+      mascot_state: distressLevel > 50 ? 'empathetic_concerned' : 'speaking',
+      suggested_grounding_technique: 'Gentle Hand on Heart',
+      distress_contribution: {
+        sentiment_score: 0.5,
+        explanation: 'Compassionate fallback engaged during model variance.',
+      },
+    };
+    return {
+      ...fallback,
+      actionsTriggered: [],
+      isCrisisAlert: false,
       scrubResult,
     };
   }

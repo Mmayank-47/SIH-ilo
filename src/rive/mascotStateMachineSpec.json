@@ -1,0 +1,114 @@
+{
+  "$schema": "https://rive.app/schemas/state-machine.json",
+  "name": "ilo_reactive_mascot",
+  "version": "2.0.0",
+  "stateMachine": {
+    "name": "MascotStateMachine",
+    "inputs": [
+      {
+        "name": "mic_amplitude",
+        "type": "Number",
+        "defaultValue": 0.0,
+        "min": 0.0,
+        "max": 100.0,
+        "description": "Real-time microphone / audio input level"
+      },
+      {
+        "name": "distress_level",
+        "type": "Number",
+        "defaultValue": 25.0,
+        "min": 0.0,
+        "max": 100.0,
+        "description": "Dynamic Distress Score (DDS) from Sanctuary AI engine"
+      },
+      {
+        "name": "mascot_state",
+        "type": "Number",
+        "defaultValue": 0,
+        "min": 0,
+        "max": 6,
+        "description": "0=Idle, 1=Listening, 2=Thinking, 3=Speaking, 4=Empathetic_Concerned, 5=Encouraging, 6=Grounding"
+      },
+      {
+        "name": "touch_tap",
+        "type": "Trigger",
+        "description": "Instant micro-reaction tap (<200ms)"
+      },
+      {
+        "name": "touch_hold",
+        "type": "Boolean",
+        "defaultValue": false,
+        "description": "Hold to engage somatic grounding breath loop"
+      },
+      {
+        "name": "is_listening",
+        "type": "Boolean",
+        "defaultValue": false,
+        "description": "Active user speech capture"
+      },
+      {
+        "name": "is_speaking",
+        "type": "Boolean",
+        "defaultValue": false,
+        "description": "Active audio speech playback"
+      },
+      {
+        "name": "reduced_motion",
+        "type": "Boolean",
+        "defaultValue": false,
+        "description": "Accessibility calm mode"
+      }
+    ],
+    "states": [
+      {
+        "id": "idle",
+        "name": "Idle",
+        "animation": "idle_breathing_loop",
+        "speed": 1.0,
+        "loop": "loop"
+      },
+      {
+        "id": "listening",
+        "name": "Listening",
+        "animation": "listening_attentive",
+        "speed": 1.0,
+        "loop": "loop"
+      },
+      {
+        "id": "thinking",
+        "name": "Thinking",
+        "animation": "thinking_pondering",
+        "speed": 0.9,
+        "loop": "pingPong"
+      },
+      {
+        "id": "speaking",
+        "name": "Speaking",
+        "animation": "speaking_viseme_blend",
+        "blendInput": "mic_amplitude",
+        "loop": "loop"
+      },
+      {
+        "id": "empathetic_concerned",
+        "name": "Empathetic_Concerned",
+        "animation": "empathetic_attunement",
+        "speed": 0.85,
+        "loop": "loop"
+      },
+      {
+        "id": "encouraging",
+        "name": "Encouraging",
+        "animation": "warm_acknowledgment",
+        "speed": 1.0,
+        "loop": "loop"
+      },
+      {
+        "id": "grounding",
+        "name": "Grounding",
+        "animation": "somatic_breath_guide",
+        "speed": 0.65,
+        "loop": "loop"
+      }
+    ]
+  }
+}

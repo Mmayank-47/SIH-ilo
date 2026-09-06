@@ -1,7 +1,7 @@
 {
   "name": "ilo - Healing Companion & Safe Sanctuary",
   "description": "A gentle, trauma-informed healing companion and private sanctuary offering somatic grounding, paced breathing, Indian classical soundscapes, safe reflections, and discreet emergency care.",
-  "requestFramePermissions": [],
+  "requestFramePermissions": ["camera"],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
   ]

@@ -2,17 +2,16 @@ import React, { useState, useRef, useEffect } from 'react';
 import { ASSETS } from '../constants/assets';
 import { ChatMessage, NavigationTab, CamouflageMode } from '../types';
 import { soundEngine } from '../utils/audioSynth';
+import { FacialCaptureController, StructuredFacialOutput } from './FacialCaptureController';
 
 interface ChatScreenProps {
   onNavigate: (tab: NavigationTab) => void;
   onTriggerCamouflage: (mode: CamouflageMode) => void;
-  onOpenClinicalMonitor?: () => void;
 }
 
 export const ChatScreen: React.FC<ChatScreenProps> = ({
   onNavigate,
   onTriggerCamouflage,
-  onOpenClinicalMonitor,
 }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
@@ -42,6 +41,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   const [isCleared, setIsCleared] = useState(false);
   const [sessionId] = useState(() => `session-${Date.now()}`);
   const [isAnalyzingMedia, setIsAnalyzingMedia] = useState(false);
+  const [sentimentShiftCounter, setSentimentShiftCounter] = useState(0);
+  const [latestFacialOutput, setLatestFacialOutput] = useState<StructuredFacialOutput | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -69,6 +70,12 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     if (!textToSend) setInputVal('');
     setIsTyping(true);
 
+    // Opportunistically trigger facial frame capture on notable sentiment shift in user text
+    const distressKeywords = /overwhelm|chest tight|panic|anxious|scared|crying|sad|hurts|hopeless|heavy|depressed|afraid|trembl/i;
+    if (distressKeywords.test(text)) {
+      setSentimentShiftCounter((c) => c + 1);
+    }
+
     try {
       const res = await fetch('/api/chat/message', {
         method: 'POST',
@@ -79,6 +86,10 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         }),
       });
       const data = await res.json();
+
+      if (data.isCrisisAlert) {
+        setSentimentShiftCounter((c) => c + 1);
+      }
 
       const botMsg: ChatMessage = {
         id: (Date.now() + 1).toString(),
@@ -219,9 +230,9 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         {/* Top Companion Presence & Safety Bar */}
         <div className="flex items-center justify-between py-2 mb-2">
           <div className="flex items-center gap-2.5">
-            <div className="relative w-12 h-12 rounded-full p-1 shadow-xs bg-white border border-[#A7B59C]/50 flex items-center justify-center">
+            <div className="relative w-12 h-12 rounded-full p-1 shadow-xs bg-[#FCFAF6] border border-[#E5DED4] flex items-center justify-center">
               <img
-                src={ASSETS.iloCompanion}
+                src={ASSETS.iloLogo}
                 alt="ilo Logo Avatar"
                 className="w-full h-full object-contain"
               />
@@ -241,19 +252,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
             </div>
           </div>
 
-          {/* Quick Discretion & Clinical Monitor Buttons */}
+          {/* Quick Discretion Button */}
           <div className="flex items-center gap-1.5">
-            {onOpenClinicalMonitor && (
-              <button
-                onClick={onOpenClinicalMonitor}
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-white text-[#6E775C] hover:bg-[#F8F4EC] active:scale-95 transition-all shadow-2xs border border-[#D5CEBF]"
-                title="Clinical Distress Monitor & AI Diagnostics"
-              >
-                <span className="material-symbols-outlined text-[15px]">health_and_safety</span>
-                <span className="text-[11px] font-semibold hidden sm:inline">Monitor</span>
-              </button>
-            )}
-
             <button
               onClick={handleClearDiscreetly}
               aria-label="Quick privacy wipe"
@@ -264,6 +264,16 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
             </button>
           </div>
         </div>
+
+        {/* Facial Wellbeing Signals & Consent Capture Controller */}
+        <FacialCaptureController
+          sessionId={sessionId}
+          isActiveConversation={!isCleared}
+          sentimentShiftCounter={sentimentShiftCounter}
+          onAnalysisReceived={(analysis) => {
+            setLatestFacialOutput(analysis);
+          }}
+        />
 
         {/* Ambient Grounding Micro-Card */}
         <div className="w-full p-3.5 rounded-2xl bg-white border border-[#D5CEBF]/70 shadow-xs mb-3.5 flex items-center gap-3">
